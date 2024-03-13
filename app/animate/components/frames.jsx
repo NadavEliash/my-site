@@ -1,5 +1,5 @@
 export default function Frames({ frames }) {
-    console.log(frames)
+    // console.log(frames)
 
     return (
         <div className="w-[60vw] mx-auto flex gap-2">
