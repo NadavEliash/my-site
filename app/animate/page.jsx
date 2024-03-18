@@ -1,6 +1,6 @@
 'use client'
 
-import { Dot, Eraser, Pencil, Expand, Move, RefreshCw, Trash, Undo, Download, Plus, ChevronRight, ChevronLeft } from "lucide-react"
+import { Dot, Eraser, Pencil, Expand, Move, RefreshCw, Trash, Undo, Download, Plus, ChevronRight, ChevronLeft, Play, Pause } from "lucide-react"
 import { useRef, useEffect, useState } from "react"
 import Frame from "./components/frame.jsx"
 
@@ -56,7 +56,7 @@ export default function Animate() {
     const switchFrame = (toFrame) => {
         let newCurrentFrameIdx
 
-        if (toFrame==='left') {
+        if (toFrame === 'left') {
             if (currentFrameIdx === 0) return
             newCurrentFrameIdx = currentFrameIdx - 1
         } else if (toFrame === 'right') {
@@ -65,10 +65,10 @@ export default function Animate() {
         } else {
             newCurrentFrameIdx = toFrame
         }
-        
+
         setCurrentFrameIdx(newCurrentFrameIdx)
         clearCanvas()
-        
+
         if (frames[newCurrentFrameIdx].drawingActions.length) {
             setDrawingActions(frames[newCurrentFrameIdx].drawingActions)
             reDrawing(frames[newCurrentFrameIdx].drawingActions)
@@ -157,6 +157,22 @@ export default function Animate() {
         })
     }
 
+    const playAnimation = () => {
+        const newContext = canvasRef.current.getContext('2d')
+        newContext.clearRect(0, 0, canvasSize.width, canvasSize.height)
+
+        for (let i = 0; i < frames.length; i++) {
+            setTimeout(() => {
+                const frame = frames[i]
+                reDrawing(frame.drawingActions)
+            }, i * 83.33)
+        }
+    }
+
+    const pauseAnimation = ()=> {
+        
+    }
+
     const download = () => {
         const a = document.createElement("a")
         document.body.appendChild(a)
@@ -179,7 +195,7 @@ export default function Animate() {
                 <div className="w-24 h-24 rounded-lg flex items-center justify-center" onClick={() => switchFrame('left')}><ChevronLeft className="w-10 h-10 text-white cursor-pointer" /></div>
                 {frames.length &&
                     frames.map((frame, idx) =>
-                        <Frame key={idx} frame={frame} idx={idx} currentFrameIdx={currentFrameIdx} canvasSize={canvasSize} switchFrame={switchFrame}/>)}
+                        <Frame key={idx} frame={frame} idx={idx} currentFrameIdx={currentFrameIdx} canvasSize={canvasSize} switchFrame={switchFrame} />)}
                 <div className="w-24 h-24 rounded-lg flex items-center justify-center" onClick={addFrame}><Plus className="w-10 h-10 text-white cursor-pointer" /></div>
                 <div className="w-24 h-24 rounded-lg flex items-center justify-center" onClick={() => switchFrame('right')}><ChevronRight className="w-10 h-10 text-white cursor-pointer" /></div>
             </div>
@@ -230,6 +246,10 @@ export default function Animate() {
                     onMouseOut={endDrawing}
                     className="bg-white rounded-r-xl">
                 </canvas>
+            </div>
+            <div className="mx-auto text-white flex items-center justify-center mt-8">
+                <Play className="cursor-pointer hover:scale-110" onClick={playAnimation} />
+                <Pause className="cursor-pointer hover:scale-110" onClick={pauseAnimation} />
             </div>
         </div>
     )
