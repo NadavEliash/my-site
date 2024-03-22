@@ -25,23 +25,25 @@ export default function Frame({
 
     useEffect(() => {
         const newContext = canvasRef.current.getContext('2d')
-        newContext.fillStyle = bgColor
-        newContext.fillRect(0, 0, canvasSize.width, canvasSize.height)
+        if (frame.drawingHistory?.length) {
+            newContext.putImageData(frame.drawingHistory[0], 0, 0)
+        } else {
+            newContext.fillStyle = bgColor
+            newContext.fillRect(0, 0, canvasSize.width, canvasSize.height)
+        }
 
-        frame.drawingActions.forEach((action) => {
-            if (action.data) {
-                newContext.putImageData(action, 0, 0)
-            } else {
-                newContext.beginPath()
-                newContext.lineWidth = action.lineWidth
-                newContext.strokeStyle = action.erase ? bgColor : action.strokeStyle
-                newContext.moveTo(action.path[0].x, action.path[0].y)
-                action.path.forEach(point => {
-                    newContext.lineTo(point.x, point.y)
-                })
-                newContext.stroke()
-            }
-        })
+        // if (frame.drawingActions.length) {
+        //     frame.drawingActions.forEach((action) => {
+        //         newContext.beginPath()
+        //         newContext.lineWidth = action.lineWidth
+        //         newContext.strokeStyle = action.erase ? bgColor : action.strokeStyle
+        //         newContext.moveTo(action.path[0].x, action.path[0].y)
+        //         action.path.forEach(point => {
+        //             newContext.lineTo(point.x, point.y)
+        //         })
+        //         newContext.stroke()
+        //     })
+        // }
     }, [frame, [bgColor]])
 
     return (
