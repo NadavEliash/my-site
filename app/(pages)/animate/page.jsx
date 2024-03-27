@@ -1,9 +1,12 @@
 'use client'
 
 import { useRef, useEffect, useState } from "react"
-import Frame from "../../components/frame"
+import Styles from "../../components/animate/styles"
+import Backgrounds from "../../components/animate/bacgrounds"
+import Layers from "../../components/animate/layers"
+import Frames from "../../components/animate/frames"
 import { Sue_Ellen_Francisco } from 'next/font/google'
-import { Eraser, Pencil, Expand, Move, RefreshCw, Trash, Undo, ChevronRight, ChevronLeft, Play, CopyPlus, SquareMinusIcon, SquarePlus, Download } from "lucide-react"
+import { Eraser, Pencil, Expand, Move, RefreshCw, Trash, Undo, ChevronRight, ChevronLeft, Play, CopyPlus, SquareMinusIcon, SquarePlus, Download, Palette } from "lucide-react"
 
 const sue_ellen = Sue_Ellen_Francisco({ subsets: ['latin'], weight: '400' })
 
@@ -14,19 +17,39 @@ export default function Animate() {
     const [context, setContext] = useState(null)
     const [action, setAction] = useState({ isDraw: true })
     const [isDrawing, setIsDrawing] = useState(false)
+    const [currentPath, setCurrentPath] = useState([])
     const [isTransform, setIsTransform] = useState(false)
     const [transformGap, setTransformGap] = useState({ x: 0, y: 0 })
-    const [currentPath, setCurrentPath] = useState([])
+    const [tempDataUrl, setTempDataUrl] = useState(null)
     const [drawingHistory, setDrawingHistory] = useState([])
-    const [tempCanvas, setTempCanvas] = useState(null)
-    const [currentFrameIdx, setCurrentFrameIdx] = useState(0)
+    const [layers, setLayers] = useState([])
+    const [currentLayerIdx, setCurrentLayerIdx] = useState(1)
     const [frames, setFrames] = useState([])
+    const [currentFrameIdx, setCurrentFrameIdx] = useState(0)
+
+    const [styleBox, setStyleBox] = useState(false)
+    const [bgBox, setBgBox] = useState(false)
+
     const [lineWidth, setLineWidth] = useState(6)
     const [dotSize, setDotSize] = useState(3)
-    const [strokeStyle, setStrokeStyle] = useState("black")
-    const [bgColor, setBgColor] = useState("white")
-
     const [showLineWidth, setShowLineWidth] = useState(false)
+    const [strokeStyle, setStrokeStyle] = useState("black")
+    const [background, setBackground] = useState("white")
+
+    useEffect(() => {
+        if (canvasRef.current) {
+            const canvas = canvasRef.current
+            canvas.width = canvasSize.width
+            canvas.height = canvasSize.height
+            const ctx = canvas.getContext('2d')
+            setContext(ctx)
+            ctx.fillStyle = background
+            ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+            setLayers([{ id: generateId(), drawingHistory: canvasRef.current.toDataURL() }, { id: generateId(), drawingHistory: [] }])
+            setFrames([{ id: generateId(), layers }])
+        }
+    }, [])
 
     useEffect(() => {
         document.addEventListener("keydown", (e) => {
@@ -39,107 +62,44 @@ export default function Animate() {
     }, [])
 
     useEffect(() => {
-        if (canvasRef.current) {
-            const canvas = canvasRef.current
-            canvas.width = canvasSize.width
-            canvas.height = canvasSize.height
-            const ctx = canvas.getContext('2d')
-            setContext(ctx)
-            ctx.fillStyle = bgColor
-            ctx.fillRect(0, 0, canvas.width, canvas.height)
+        if (context && layers[currentLayerIdx]) {
+            const id = layers[currentLayerIdx].id
+            const newLayer = { id, drawingHistory }
 
-            setFrames([{ id: generateId(), drawingHistory }])
+            const newLayers = layers.filter(frame => frame.id !== id)
+            newLayers.splice(currentLayerIdx, 0, newLayer)
+            setLayers(newLayers)
         }
-    }, [])
+    }, [drawingHistory])
 
     useEffect(() => {
         if (context && frames[currentFrameIdx]) {
             const id = frames[currentFrameIdx].id
-            const newFrame = { id, drawingHistory }
+            const newFrame = { id, layers }
 
             const newFrames = frames.filter(frame => frame.id !== id)
             newFrames.splice(currentFrameIdx, 0, newFrame)
             setFrames(newFrames)
         }
-    }, [drawingHistory])
+    }, [layers])
 
     useEffect(() => {
-        if (context && bgColor) {
-            context.fillStyle = bgColor
+        if (context && frames[currentFrameIdx]) {
+            context.fillStyle = background
+            context.fillRect(0, 0, canvasSize.width, canvasSize.height)
+            redraw(frames[currentFrameIdx].drawingHistory)
+        }
+    }, [currentFrameIdx])
+
+    useEffect(() => {
+        if (context && background) {
+            context.fillStyle = background
             context.fillRect(0, 0, canvasSize.width, canvasSize.height)
             redraw()
         }
-    }, [bgColor])
-
-    useEffect(() => {
-        const newDotSize = lineWidth > 22 ? 6
-            : lineWidth > 14 ? 4
-                : lineWidth > 8 ? 3
-                    : lineWidth > 4 ? 2
-                        : 1
-        setDotSize(newDotSize)
-    }, [lineWidth])
+    }, [background])
 
     // FRAMES SECTION
-
-    const addFrame = () => {
-        clearCanvas()
-        const newFrame = { id: generateId(), drawingHistory }
-        frames.splice(currentFrameIdx, 0, newFrame)
-        setFrames(prev => [...prev])
-        setCurrentFrameIdx(currentFrameIdx + 1)
-    }
-
-    const switchFrame = (toFrame) => {
-        let newCurrentFrameIdx
-
-        if (toFrame === 'left') {
-            if (currentFrameIdx === 0) return
-            newCurrentFrameIdx = currentFrameIdx - 1
-        } else if (toFrame === 'right') {
-            if (currentFrameIdx === frames.length - 1) return
-            newCurrentFrameIdx = currentFrameIdx + 1
-        } else {
-            newCurrentFrameIdx = toFrame
-        }
-
-        setCurrentFrameIdx(newCurrentFrameIdx)
-        clearCanvas()
-
-        if (frames[newCurrentFrameIdx].drawingHistory.length) {
-            setDrawingHistory(frames[newCurrentFrameIdx].drawingHistory)
-            redraw(frames[newCurrentFrameIdx].drawingHistory)
-        }
-    }
-
-    const removeFrame = () => {
-        if (frames.length === 1) {
-            clearCanvas()
-        } else {
-            frames.splice(currentFrameIdx, 1)
-            setFrames(prev => [...prev])
-            if (currentFrameIdx >= 1) {
-                redraw(frames[currentFrameIdx - 1].drawingActions)
-                setCurrentFrameIdx(currentFrameIdx - 1)
-            } else {
-                redraw(frames[0].drawingHistory)
-                setCurrentFrameIdx(0)
-            }
-        }
-    }
-
-    const duplicateFrame = () => {
-        const newFrame = { id: generateId(), drawingHistory: frames[currentFrameIdx].drawingHistory }
-        frames.splice(currentFrameIdx, 0, newFrame)
-        switchFrame('right')
-    }
-
-    const clearAll = () => {
-        setDrawingHistory([])
-        setFrames([{ id: generateId(), drawingHistory }])
-        setCurrentFrameIdx(0)
-        clearCanvas()
-    }
 
     const drawOnionSkin = () => {
         const prevFrame = frames[currentFrameIdx - 1]
@@ -161,10 +121,15 @@ export default function Animate() {
     }
 
     const onMove = (e) => {
-        if (action.isDraw || action.isErase) draw(e)
-        if (action.isTranslate) translate(e)
-        if (action.isRotate) rotate(e)
-        if (action.isScale) scale(e)
+        if (action.isDraw || action.isErase) {
+            draw(e)
+        } else if (action.isTranslate) {
+            translate(e)
+        } else if (action.isRotate) {
+            rotate(e)
+        } else if (action.isScale) {
+            scale(e)
+        }
     }
 
     const onUp = (e) => {
@@ -193,7 +158,7 @@ export default function Animate() {
             context.strokeStyle = strokeStyle
         } else if (action.isErase) {
             context.lineWidth = 12
-            context.strokeStyle = bgColor
+            context.strokeStyle = background
         }
 
         context.lineTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY)
@@ -205,9 +170,11 @@ export default function Animate() {
         setIsDrawing(false)
         context && context.closePath()
         if (currentPath.length > 0) {
-            const imageData = context.getImageData(0, 0, canvasSize.width, canvasSize.height)
-            setDrawingHistory([imageData, ...drawingHistory])
-            // setDrawingActions([...drawingActions, { path: currentPath, lineWidth: action.isErase ? 12 : lineWidth, strokeStyle: action.isErase ? bgColor : strokeStyle, erase: action.isErase }])
+            const url = canvasRef.current.toDataURL()
+            setDrawingHistory([url, ...drawingHistory])
+            // const imageData = context.getImageData(0, 0, canvasSize.width, canvasSize.height)
+            // setDrawingHistory([imageData, ...drawingHistory])
+            // setDrawingActions([...drawingActions, { path: currentPath, lineWidth: action.isErase ? 12 : lineWidth, strokeStyle: action.isErase ? background : strokeStyle, erase: action.isErase }])
         }
         setCurrentPath([])
     }
@@ -216,19 +183,25 @@ export default function Animate() {
         setIsTransform(true)
         setTransformGap({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY })
 
-        setTempCanvas(canvasRef.current.toDataURL())
+        setTempDataUrl(canvasRef.current.toDataURL())
     }
 
     const translate = (e) => {
         if (!isTransform || !drawingHistory.length) return
 
-        const newContext = canvasRef.current.getContext('2d')
-        newContext.fillStyle = bgColor
-        newContext.fillRect(0, 0, canvasSize.width, canvasSize.height)
-
         const gapX = e.nativeEvent.offsetX - transformGap.x
         const gapY = e.nativeEvent.offsetY - transformGap.y
-        newContext.putImageData(drawingHistory[0], gapX, gapY)
+
+        const newContext = canvasRef.current.getContext('2d')
+        const image = new Image
+        image.onload = () => {
+            newContext.clearRect(0, 0, canvasSize.width, canvasSize.height)
+            newContext.save()
+            newContext.translate(gapX, gapY)
+            newContext.drawImage(image, 0, 0)
+            newContext.restore()
+        }
+        image.src = tempDataUrl
     }
 
     const rotate = (e) => {
@@ -247,7 +220,7 @@ export default function Animate() {
             newContext.drawImage(image, -canvasSize.width / 2, -canvasSize.height / 2)
             newContext.restore()
         }
-        image.src = tempCanvas
+        image.src = tempDataUrl
     }
 
     const scale = (e) => {
@@ -265,7 +238,7 @@ export default function Animate() {
             newContext.drawImage(image, -canvasSize.width / 2, -canvasSize.height / 2)
             newContext.restore()
         }
-        image.src = tempCanvas
+        image.src = tempDataUrl
     }
 
     const endTransform = (e) => {
@@ -274,8 +247,11 @@ export default function Animate() {
         setIsTransform(false)
         setTransformGap({ x: 0, y: 0 })
 
-        const imageData = context.getImageData(0, 0, canvasSize.width, canvasSize.height)
-        setDrawingHistory([imageData, ...drawingHistory])
+        const url = canvasRef.current.toDataURL()
+        setDrawingHistory([url, ...drawingHistory])
+
+        // const imageData = context.getImageData(0, 0, canvasSize.width, canvasSize.height)
+        // setDrawingHistory([imageData, ...drawingHistory])
     }
 
     const onDraw = () => {
@@ -290,7 +266,7 @@ export default function Animate() {
 
     const clearCanvas = () => {
         setDrawingHistory([])
-        context.fillStyle = bgColor
+        context.fillStyle = background
         context.fillRect(0, 0, canvasSize.width, canvasSize.height)
         context.beginPath()
     }
@@ -306,9 +282,14 @@ export default function Animate() {
     const redraw = (history = drawingHistory) => {
         const newContext = canvasRef.current.getContext('2d')
         if (history.length) {
-            newContext.putImageData(history[0], 0, 0)
+            const image = new Image
+            image.onload = () => {
+                newContext.drawImage(image, 0, 0)
+            }
+            image.src = history[0]
+            // newContext.putImageData(history[0], 0, 0)
         } else {
-            newContext.fillStyle = bgColor
+            newContext.fillStyle = background
             newContext.fillRect(0, 0, canvasSize.width, canvasSize.height)
         }
     }
@@ -341,8 +322,6 @@ export default function Animate() {
         a.click()
     }
 
-
-
     // STYLE CLASSES
 
     const framesButtonClass = "w-6 h-6 cursor-pointer hover:scale-110"
@@ -351,34 +330,34 @@ export default function Animate() {
     return (
         <main>
             <h1 className={`text-5xl text-slate-200 text-center my-10 ${sue_ellen.className}`}>Let's Animate!</h1>
-            <div id="drawing-bar" className="w-[80vw] mx-auto flex gap-2 mt-8">
-                <div id="drawing-options" className="p-2 bg-white/10 text-white/70 grid grid-rows-10 justify-items-center items-center gap-1 rounded-2xl">
+            <div id="drawing-bar" className="md:w-[80vw] mx-auto flex flex-col md:flex-row gap-2 mt-8">
+                <div id="drawing-options" className="p-2 bg-white/10 text-white/70 grid grid-cols-10 md:grid-cols-1 md:grid-rows-10 justify-items-center items-center gap-1 rounded-2xl">
                     <div id="pencil" onClick={onDraw} className={`${actionButtonClass} ${action.isDraw ? 'bg-white/20' : ''}`}>
                         <Pencil />
                     </div>
                     <div id="erase" onClick={onErase} className={`${actionButtonClass} ${action.isErase ? 'bg-white/20' : ''}`}>
                         <Eraser />
                     </div>
-                    <div id="lineWidth">
-                        <div className="relative cursor-pointer w-6 h-6"
-                            onClick={() => setShowLineWidth(!showLineWidth)}>
-                            <div className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-300 border-0 rounded-full h-${dotSize} w-${dotSize}`}></div>
-                            <div className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-300 border-0 rounded-full h-2 w-2`}></div>
-                            {showLineWidth && (
-                                <input className="absolute left-16 top-1 transition-opacity" type="range" min={1} max={30} step={1} value={lineWidth}
-                                    onChange={(e) => setLineWidth(e.target.value)} />
-                            )}
-                        </div>
+                    {styleBox && <div className="absolute left-0 top-0 w-[100vw] h-[100vh] bg-slate-300/10 z-20" onClick={() => setStyleBox(false)}></div>}
+                    <div id="styleBox" className={`${actionButtonClass} relative`} onClick={() => setStyleBox(true)}>
+                        <Palette />
+                        {styleBox && <Styles
+                            styleBox={styleBox}
+                            setStyleBox={setStyleBox}
+                            lineWidth={lineWidth}
+                            setLineWidth={setLineWidth}
+                            strokeStyle={strokeStyle}
+                            setStrokeStyle={setStrokeStyle}
+                        />}
                     </div>
-                    <div title="Draw color" className={`relative`}>
-                        <div className="w-6 h-6 rounded-full border-2 border-white overflow-hidden cursor-pointer">
-                            <input type="color" onChange={(e) => setStrokeStyle(e.target.value)} className="-ml-3 -mt-2 h-10 bg-transparent cursor-pointer" />
-                        </div>
-                    </div>
-                    <div title="Background color" className={`relative`}>
-                        <div className="w-6 h-6 rounded-full border-2 border-black overflow-hidden cursor-pointer">
-                            <input type="color" onChange={(e) => setBgColor(e.target.value)} defaultValue="#ffffff" className="-ml-3 -mt-2 h-10 bg-transparent cursor-pointer" />
-                        </div>
+                    {bgBox && <div className="absolute left-0 top-0 w-[100vw] h-[100vh] bg-slate-300/10 z-20" onClick={() => setBgBox(false)}></div>}
+                    <div id="bgBox" className="rounded-sm w-6 h-6 bg-white relative cursor-pointer text-black text-sm text-center pt-[2px]" onClick={() => setBgBox(true)}>BG
+                        {bgBox && <Backgrounds
+                            bgBox={bgBox}
+                            setBgBox={setBgBox}
+                            background={background}
+                            setBackground={setBackground}
+                        />}
                     </div>
                     <div title="Translate" className={`${actionButtonClass} ${action.isTranslate ? 'bg-white/20' : ''}`} onClick={() => setAction({ isTranslate: true })}>
                         <Move />
@@ -403,41 +382,28 @@ export default function Animate() {
                         onMouseMove={onMove}
                         onMouseUp={onUp}
                         onMouseOut={onUp}
-                        className="bg-white rounded-md">
+                        className={`bg-white w-[100%] md:w-fit rounded-md ${isTransform ? 'cursor-grab' : isDrawing ? 'cursor-none' : ''}`}>
                     </canvas>
                 </div>
+                <Layers
+                    layers={layers}
+                    setLayers={setLayers}
+                    canvasSyze={canvasSize}
+                    currentLayerIdx={currentLayerIdx}
+                    setCurrentLayerIdx={setCurrentLayerIdx}
+                    generateId={generateId}
+                />
             </div>
-            <div className="w-[80vw] bg-white/10 mx-auto rounded-2xl">
-                <div className="w-full p-4 mt-4 text-white/70 border-b-4 border-white/10 flex gap-4 items-center justify-center">
-                    <div title="Clear scene" className={`${framesButtonClass} bg-red-500 rounded-full w-8 h-8 p-1 text-black`} onClick={clearAll}>
-                        <Trash />
-                    </div>
-                    <div title="Add a blank frame" className={framesButtonClass} onClick={addFrame}>
-                        <SquarePlus />
-                    </div>
-                    <div title="Duplicate frame" className={framesButtonClass} onClick={duplicateFrame} >
-                        <CopyPlus />
-                    </div>
-                    <div title="Remove frame" className={framesButtonClass} onClick={removeFrame}>
-                        <SquareMinusIcon />
-                    </div>
-                    <div title="Play animation" className={framesButtonClass} onClick={play}>
-                        <Play />
-                    </div>
-                    <div title="Download as .mp4" className={framesButtonClass} onClick={download}>
-                        <Download />
-                    </div>
-                </div>
-                <div className="w-full h-40 p-4 flex gap-2 items-center justify-center mt-1">
-                    <div className="w-8 py-4 mt-2 bg-slate-950 rounded-lg flex self-start" onClick={() => switchFrame('left')}><ChevronLeft className="w-10 h-10 text-white cursor-pointer" /></div>
-                    <div id="frames" className="flex-1 gap-4 flex overflow-x-auto justify-start p-2">
-                        {frames.length &&
-                            frames.map((frame, idx) =>
-                                <Frame key={idx} frame={frame} idx={idx} currentFrameIdx={currentFrameIdx} canvasSize={canvasSize} switchFrame={switchFrame} bgColor={bgColor} />)}
-                    </div>
-                    <div className="w-8 py-4 mt-2 bg-slate-950 rounded-lg self-start flex justify-center" onClick={() => switchFrame('right')}><ChevronRight className="w-10 h-10 text-white cursor-pointer" /></div>
-                </div>
-            </div>
+            <Frames
+                frames={frames}
+                setFrames={setFrames}
+                currentFrameIdx={currentFrameIdx}
+                setCurrentFrameIdx={setCurrentFrameIdx}
+                canvasSize={canvasSize}
+                background={background}
+                clearCanvas={clearCanvas}
+                generateId={generateId}
+            />
         </main>
     )
 }
